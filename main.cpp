@@ -1,87 +1,50 @@
 #include <iostream>
 #include <omp.h>
-
-#define ll unsigned long long
-
 using namespace std;
 
-ll fib(int n) {
-    if (n < 2) return n;
-    return fib(n - 1) + fib(n - 2);
-}
+#define ull unsigned long long
+#define N 15
 
-ll fib_seq(int n) {
-    ll old = 0;
-    ll value = 1;
-    ll hold;
+ull value[N+1];
+bool done[N+1];
+omp_lock_t lock[N+1];
 
-    if(n < 1) return 0;
+const ull e = 10e10 + 7;
 
-    for(ll i = 1; i < n; i++)
-    {
-        hold = value;
-        value += old;
-        old = hold;
-    }
+ull fib(int n) {
+    ull i, j;
 
-    return value;
-}
+    omp_set_lock( &(lock[n]) );
 
-ll fib_omp_sections(int n) {
-    ll x, y;
-    #pragma omp parallel
-    {
-        #pragma omp parallel sections shared(x, y)
+    if (!done[n]) {
+        #pragma omp parallel shared(value, done)
         {
-            #pragma omp section
-            {
-                x = fib(n - 1);
-            }
-            #pragma omp section
-            {
-                y = fib(n - 2);
-            }
-        }
-    }
+            #pragma omp task shared(i) firstprivate(n)
+            i = fib(n - 1);
 
-    return x + y;
-}
-
-ll fib_omp_tasks(int n) {
-    ll x, y;
-    if (n < 2) return n;
-    #pragma omp parallel shared(n)
-    {
-        #pragma omp single
-        {
-            #pragma omp task shared(x)
-            x = fib_omp_tasks(n - 1);
-
-            #pragma omp task shared(y)
-            y = fib_omp_tasks(n - 2);
+            #pragma omp task shared(j) firstprivate(n)
+            j = fib(n - 2);
 
             #pragma omp taskwait
+            value[n] = (i + j) % e;
+            done[n] = true;
         }
     }
 
-    return x + y;
+    omp_unset_lock( &(lock[n]) );
+    return value[n];
 }
-
-
-void run(const string& name, ll f(int)) {
-    double time = omp_get_wtime();
-    ll res = f(50);
-    printf("%s Time: %f Result: %llu\n", name.c_str() , omp_get_wtime() - time, res);
-}
-
 
 int main() {
-    omp_set_num_threads(4);
+    value[0] = 0;
+    value[1] = 1;
 
-    run("Recursive", fib);
-    run("Sequence ", fib_seq);
-    run("Sections ", fib_omp_sections);
-    run("Tasks    ", fib_omp_tasks);
+    for (int i = 0; i <= N; i++) done[i] = false;
 
-    return 0;
+    done[0] = true;
+    done[1] = true;
+
+    for (int i=0; i <= N; i++) omp_init_lock(&(lock[i]));
+    cout << fib(N) << '\n';
+    for (int i=0; i <= N ; i++) omp_destroy_lock(&(lock[i]));
 }
