@@ -26,6 +26,11 @@ ull fib_seq(ull n) {
     return result;
 }
 
+ull fib_rec(ull n) {
+    if (n < 2) return n;
+    return fib_rec(n - 1) + fib_rec(n - 2);
+}
+
 ull fib_omp(ull n) {
     if (n < 2) return n;
 
